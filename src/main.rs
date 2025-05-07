@@ -1,21 +1,14 @@
-use std::env;
 use std::process;
-
-use minigrep::Config;
-
+use minigrep;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let config = Config::build(&args).unwrap_or_else(|err|{
-        println!("参数错误: {err}");
+    let config = minigrep::read().unwrap_or_else(|err|{
+        eprintln!("{}", err);
         process::exit(1);
     });
 
-    println!("Searching for {}", config.query);
-    println!("In file {}", config.file_path);
-
-    if let Err(e) = minigrep::run(config) {
-        println!("运行错误: {}", e);
+    if let Err(err) = minigrep::run(config) {
+        eprintln!("{}", err);
         process::exit(1);
     };
 }

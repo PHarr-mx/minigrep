@@ -1,12 +1,12 @@
 use std::error::Error;
-use std::fs;
+use std::{env, fs};
 
 pub struct Config {
     pub query: String,
     pub file_path: String,
 }
 impl Config {
-    pub fn build(args: &[String]) -> Result<Config, &'static str> {
+    fn build(args: &[String]) -> Result<Config, &'static str> {
         if args.len() < 3 {
             return Err("参数不够");
         } else if args.len() > 3 {
@@ -19,13 +19,28 @@ impl Config {
     }
 }
 
+pub fn read() -> Result<Config, String>{
+    let args: Vec<String> = env::args().collect();
+    let config = Config::build(&args).map_err(|err| format!("参数错误 : {}", err))?;
+    return Ok(config);
+}
+
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    let contents = fs::read_to_string(config.file_path)?;
-    println!("contents is :\n{}", contents);
+    let contents = fs::read_to_string(config.file_path).map_err(|err| format!("运行错误 : {}", err))?;
+    let search_results = search(&config.query, &contents);
+    if search_results.is_empty(){
+        println!("未找到");
+    } else {
+        println!("搜索结果 : ");
+        for line in search(&config.query, &contents) {
+            println!("{}",line);
+        }
+        println!("共计出现 : {} 次",  search_results.len());
+    }
     return Ok(());
 }
 
-pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
     let mut res = vec![];
     for line in contents.lines() {
         if line.contains(query) {
