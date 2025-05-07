@@ -1,8 +1,8 @@
-use std::process;
 use minigrep;
+use std::process;
 
 fn main() {
-    let config = minigrep::read().unwrap_or_else(|err|{
+    let config = minigrep::read().unwrap_or_else(|err| {
         eprintln!("{}", err);
         process::exit(1);
     });
