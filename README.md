@@ -355,3 +355,70 @@ mod tests {
     }
 }
 ```
+
+## 迭代器优化性能
+看`Config::build`
+
+```rust
+fn build(args: &[String]) -> Result<Config, &'static str> {
+        if args.len() < 3 {
+            return Err("参数不够");
+        } else if args.len() > 3 {
+            return Err("参数过多");
+        }
+        return Ok(Config {
+            query: args[1].clone(),
+            file_path: args[2].clone(),
+            ignore_case: env::var("IGNORE_CASE").is_ok() && env::var("IGNORE_CASE").unwrap() == "1",
+        });
+    }
+```
+为了返回一个有所有权的`Result`,这里实现两个`clone`深拷贝。
+我可以通过获得迭代的所有权，这样就不用触发深拷贝了。
+更新以下两个函数即可使用迭代器。
+```rust
+fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
+    args.next();
+    let query = match args.next() {
+        Some(arg) => arg,
+        None => return Err("未找到查询字符串"),
+    };
+    let file_path = match args.next() {
+        Some(arg) => arg,
+        None => return Err("未找到文件路径"),
+    };
+
+    if args.count() > 0 {
+        return Err("参数过多");
+    }
+
+    return Ok(Config {
+        query,
+        file_path,
+        ignore_case: env::var("IGNORE_CASE").is_ok() && env::var("IGNORE_CASE").unwrap() == "1",
+    });
+}
+
+
+pub fn read() -> Result<Config, String> {
+    let config = Config::build(env::args()).map_err(|err| format!("参数错误 : {}", err))?;
+    return Ok(config);
+}
+```
+
+另一个可以用迭代优化的函数就是搜索函数。
+```rust
+fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+    contents
+        .lines()
+        .filter(|line| line.contains(query))
+        .collect()
+}
+fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+    let query = query.to_lowercase();
+    contents
+        .lines()
+        .filter(|line| line.to_lowercase().contains(&query))
+        .collect()
+}
+```

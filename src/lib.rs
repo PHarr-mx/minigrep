@@ -7,23 +7,32 @@ pub struct Config {
     pub ignore_case: bool,
 }
 impl Config {
-    fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 3 {
-            return Err("参数不够");
-        } else if args.len() > 3 {
+    fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
+        args.next();
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("未找到查询字符串"),
+        };
+
+        let file_path = match args.next() {
+            Some(arg) => arg,
+            None => return Err("未找到文件路径"),
+        };
+
+        if args.count() > 0 {
             return Err("参数过多");
         }
+
         return Ok(Config {
-            query: args[1].clone(),
-            file_path: args[2].clone(),
+            query,
+            file_path,
             ignore_case: env::var("IGNORE_CASE").is_ok() && env::var("IGNORE_CASE").unwrap() == "1",
         });
     }
 }
 
 pub fn read() -> Result<Config, String> {
-    let args: Vec<String> = env::args().collect();
-    let config = Config::build(&args).map_err(|err| format!("参数错误 : {}", err))?;
+    let config = Config::build(env::args()).map_err(|err| format!("参数错误 : {}", err))?;
     return Ok(config);
 }
 
@@ -31,10 +40,6 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents =
         fs::read_to_string(config.file_path).map_err(|err| format!("运行错误 : {}", err))?;
 
-    println!("ignore-case {}", config.ignore_case);
-    for line in contents.lines() {
-        println!("{}", line);
-    }
     let search_results = match config.ignore_case {
         true => search_case_insensitive(&config.query, &contents),
         false => search(&config.query, &contents),
@@ -52,23 +57,17 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut res = vec![];
-    for line in contents.lines() {
-        if line.contains(query) {
-            res.push(line)
-        }
-    }
-    return res;
+    contents
+        .lines()
+        .filter(|line| line.contains(query))
+        .collect()
 }
 fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut res = vec![];
     let query = query.to_lowercase();
-    for line in contents.lines() {
-        if line.to_lowercase().contains(&query) {
-            res.push(line);
-        }
-    }
-    return res;
+    contents
+        .lines()
+        .filter(|line| line.to_lowercase().contains(&query))
+        .collect()
 }
 #[cfg(test)]
 mod tests {
